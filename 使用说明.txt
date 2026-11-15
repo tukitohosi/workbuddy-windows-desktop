@@ -1,0 +1,59 @@
+WorkBuddy 国内版 Windows 桌面操控连接器 1.4.3
+
+安装
+需要 Windows 10/11、已在本机运行过的 WorkBuddy 国内版，以及 Python 3.10 或更高版本。插件仅使用 Windows 自带组件和 Python 标准库。请先解压本包，在解压后的文件夹中打开 PowerShell，然后运行
+
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
+
+也可在命令末尾加上 -PythonExe "你的 python.exe 完整路径"。安装器把程序放在当前 Windows 用户的 .workbuddy\local-tools\windows-desktop-control 下，并向 .workbuddy\mcp.json 中添加 windows-desktop-control。请保留本包以便卸载。
+
+首次在国内版桌面端启用
+收起左下角的头像菜单，在主窗口左侧打开“专家·技能·连接器”，进入“连接器”页签。确认当前是“本地”环境。在管理页右上角、搜索框右侧点击“自定义连接器”（窗口较窄时此按钮只显示编辑图标，可最大化窗口或悬停看名称）。在“MCP 服务管理”中找到 windows-desktop-control，按提示点“信任”并确认已连接。
+
+如果列表还没有显示新服务，WorkBuddy 5.9.3 可以点击“＋ 添加 MCP”。它会打开配置编辑器并从磁盘读取整份 JSON。在顶部核对“配置文件路径”，并在编辑器内搜索 windows-desktop-control。若已存在，在最后一个右花括号后加一个空格，点“保存”再点“返回 MCP 列表”，即可让 WorkBuddy 重新读取并应用该配置。也可以从托盘完整退出 WorkBuddy 后重新启动。
+腾讯图文说明：https://www.workbuddy.cn/docs/workbuddy/From-Beginner-to-Expert-Guide/Function-Description/Connector
+
+用 WorkBuddy 测试
+在桌面端发起一个新的本地任务，发送下面这段话。若 WorkBuddy 显示授权卡片，可在看清工具和目标后允许本次操作。
+
+  请使用 windows-desktop-control：打开一个新的空白记事本，输入“春天的风吹过窗前”，然后重新从记事本编辑框读取正文，把实际读到的内容告诉我。请使用 desktop_open_notepad、desktop_type_text 和 desktop_read_text。
+
+工具
+  desktop_open_notepad     打开新空白记事本，返回此连接专用的 window_id。
+  desktop_select_window    根据进程名和窗口完整标题绑定指定窗口。
+  desktop_inspect          返回窗口状态、客户区和可见控件；可读取 element_id、焦点、读写能力与截断标志。
+  desktop_move_mouse       按窗口客户区内的物理像素坐标移动真实鼠标指针。
+  desktop_click            移动并单击鼠标。click_count=2 在一次调用中完成真实双击，返回实际提交的点击次数。
+  desktop_type_text        用 element_id 指定编辑框并追加；target=focused 按经过核实的选区输入；省略时使用唯一编辑框。按输入后从同一字段读回的结果报告状态。
+  desktop_read_text        按 element_id、target=focused 或唯一编辑框读回实际文字。
+  desktop_invoke           按 element_id 或唯一准确名称触发按钮。
+
+  desktop_window_state     对已绑定窗口执行 query、minimize、restore 或 maximize，并返回 Windows 实际状态。
+  desktop_press_key        向已验证的前台目标发送 Ctrl+L（Chromium 地址栏）或 Enter。提交网页表单前请确认这是任务所需。
+  desktop_last_result      查询当前连接上最近一次操作回执，也可按 operation_id 查询。同一连接内最多保留 256 条最近的操作记录。
+
+对有副作用的操作可指定唯一 operation_id。若同一次调用的返回丢失，先查询其回执；相同编号和相同参数会返回原回执。计数单位为 UTF-16。completed 表示工具完成其描述的动作；双击提交后仍要核对目标文件是否打开。partial 表示只完成了一部分，unknown 表示无法核实最终效果。这两种情况先读回，避免重复写入或单击。执行前取消会返回 cancelled 和 effect=none。客户端若隐藏被取消的工具消息，可在原连接上查询回执。重连后要重新绑定并检查实际界面。
+
+后台窗口的第一次双击也使用同一个 desktop_click 调用。Windows 未直接把普通目标窗口切到前台时，插件会视窗口能力短暂最小化、还原，然后核对目标、窗口状态、客户区位置和缩放。首次移动鼠标前，它会为短暂的指针抖动等待片刻。仅系统输入时间戳刷新时，操作可以继续；检测到键盘输入、鼠标按钮、滚轮、持续移动或其他窗口接走前台时，会在输入前中止。不会记录按键内容。回执中的 activation_method 记录置前方式，activation_guard 记录相应的中止原因。如已完成第一击或效果未知，请先核对文件是否已打开。
+
+选择 Windows 桌面后，如果目标图标露在其他窗口旁边，双击的第一下可以直接落在该图标上，同时激活桌面。插件会在两次点击前分别核对落点和图标身份。如果第一下之后图标被遮挡或移动，回执会报告已提交的点击数。请结合目标应用是否打开来判断结果。
+
+需要安排稍后点击时，可显式传 delay_before_ms（0 至 20000 毫秒）。默认立即开始。等待期间还没有移动指针或提交点击。客户端发出的取消通知、连接断开，以及等待时出现新的输入，是不同原因。可用同一连接的 desktop_last_result 查询本次 operation_id。
+
+当 WorkBuddy 调用本连接器的桌面工具时，当前显示器顶部中央会出现深色的小胶囊，用简短文字提示当前动作。屏幕四边泛起柔和的蓝色和蓝紫色光晕，光线在四角渐变衔接。移动或点击鼠标时，提示跟随指针所在的显示器；打开窗口、输入和读回文字时，提示跟随前台窗口所在的显示器。你仍可点击屏幕，键盘焦点留在当前应用。连续动作会延长提示，最后一次动作结束后约 1.8 秒收起。
+
+desktop_move_mouse 和 desktop_click 会移动 Windows 的真实指针。动作期间，一枚深色圆角小箭头贴着指针的实际点击位置移动，箭头带有细亮边和一层柔蓝雾晕。单击时，雾晕会轻轻向外扩散。这个标记由连接器临时绘制，保留你原来的 Windows 指针主题。鼠标动作结束约半秒后，或切换到其他工具时，标记会收起。读取和按钮调用可以通过窗口控件完成；虚拟编辑框输入还要求核实前台窗口与键盘焦点。
+
+打开记事本时会在 %TEMP%\WorkBuddy-Desktop 下创建一个唯一命名的空白 .txt 文件，以识别新文档。实际输入和读回均通过编辑控件完成，可在测试结束后自行保存或关闭文档。
+
+目标窗口需要位于当前登录用户的交互桌面。控件无法识别、候选编辑区不唯一、窗口已经关闭或权限不匹配时，工具可能返回错误。服务重连后需重新打开或选择窗口。读回的文字会作为工具结果交给 WorkBuddy 当前任务。连接器只打开记事本，不提供执行任意命令的工具。
+
+升级和退回旧版
+使用新版解压目录里的 install.ps1 安装。每个不同版本存放在单独的目录中；再次安装完全相同的版本会沿用同一路径。WorkBuddy 可能要求为路径变化后的版本重新点击“信任”。升级后重新连接并新建本地任务，已有的窗口编号需要重新取得。要退回旧版，运行对应旧版解压包里的 install.ps1，再重新连接。
+
+卸载
+等当前桌面任务完成后，在解压目录运行
+
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\uninstall.ps1
+
+本版卸载器可识别 1.0 至 1.4.3 的发布文件。它移除本连接器的配置和校验通过的文件。遇到同名的其他配置、非本包创建的目录或被手动修改的程序文件，会予以保留。
